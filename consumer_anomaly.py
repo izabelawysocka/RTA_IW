@@ -6,14 +6,14 @@ from datetime import datetime
 consumer = KafkaConsumer(
     'transactions',
     bootstrap_servers='broker:9092',
-    auto_offset_reset='earliest',
+    auto_offset_reset='latest',
     group_id='anomaly-group',
     value_deserializer=lambda x: json.loads(x.decode('utf-8'))
 )
 
 user_transactions = defaultdict(list)
 
-print("Nasłuchuję...")
+print("Nasłuchuję transakcji i wykrywam anomalie prędkości...")
 
 for message in consumer:
     tx = message.value
@@ -21,13 +21,13 @@ for message in consumer:
     timestamp = datetime.fromisoformat(tx['timestamp'])
 
     user_transactions[user].append(timestamp)
-
-    # tylko ostatnie 60 sekund
     user_transactions[user] = [
         t for t in user_transactions[user]
         if (timestamp - t).total_seconds() <= 60
     ]
 
     if len(user_transactions[user]) > 3:
-        print(f"🚨 ALERT: {user} zrobił {len(user_transactions[user])} transakcji w 60 sekund!")
-        
+        print(
+            f"ALERT: {user} wykonał {len(user_transactions[user])} transakcje w ciągu 60 sekund | "
+            f"{tx['tx_id']} | {tx['amount']:.2f} PLN | {tx['store']} | {tx['category']}"
+        )
